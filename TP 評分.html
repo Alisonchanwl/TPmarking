@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生口语评分系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/RecordRTC/5.6.2/RecordRTC.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .student-name {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 200px;
+        }
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #recordButton.recording {
+            background-color: #e74c3c;
+        }
+        .recording-status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+            margin-left: 8px;
+        }
+        .recording-status.recording {
+            background-color: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .left-panel, .right-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+        .card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .card-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+        .score {
+            font-size: 18px;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+        }
+        .stats-table th, .stats-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        .stats-table th {
+            background-color: #f2f2f2;
+        }
+        .checkbox-section {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .checkbox-column {
+            flex: 1;
+            min-width: 250px;
+        }
+        .checkbox-item {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-item input {
+            margin-right: 8px;
+        }
+        .suggestion-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+        .suggestion-box h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .score-display {
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 16px;
+            color: #27ae60;
+        }
+        .timer {
+            font-family: monospace;
+            font-size: 16px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>学生口语评分系统</h1>
+            <div class="controls">
+                <input type="text" id="studentName" class="student-name" placeholder="输入学生姓名">
+                <button id="recordButton">开始录音</button>
+                <button id="saveButton" disabled>保存录音</button>
+                <button id="resetButton">重置全部</button>
+                <span id="recordingStatus" class="recording-status"></span>
+                <div class="timer" id="timer">00:00</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="left-panel">
+                <div class="card" id="card1">
+                    <div class="card-title">第一题</div>
+                    <div class="card-controls">
+                        <button class="decrease-btn" data-card="1">-</button>
+                        <div class="score" id="score1">0</div>
+                        <button class="increase-btn" data-card="1">+</button>
+                    </div>
+                </div>
+                <div class="card" id="card2">
+                    <div class="card-title">第二题</div>
+                    <div class="card-controls">
+                        <button class="decrease-btn" data-card="2">-</button>
+                        <div class="score" id="score2">0</div>
+                        <button class="increase-btn" data-card="2">+</button>
+                    </div>
+                </div>
+                <div class="card" id="card3">
+                    <div class="card-title">第三题</div>
+                    <div class="card-controls">
+                        <button class="decrease-btn" data-card="3">-</button>
+                        <div class="score" id="score3">0</div>
+                        <button class="increase-btn" data-card="3">+</button>
+                    </div>
+                </div>
+                <div class="card" id="card4">
+                    <div class="card-title">第四题</div>
+                    <div class="card-controls">
+                        <button class="decrease-btn" data-card="4">-</button>
+                        <div class="score" id="score4">0</div>
+                        <button class="increase-btn" data-card="4">+</button>
+                    </div>
+                </div>
+                <div class="card" id="card5">
+                    <div class="card-title">第五题</div>
+                    <div class="card-controls">
+                        <button class="decrease-btn" data-card="5">-</button>
+                        <div class="score" id="score5">0</div>
+                        <button class="increase-btn" data-card="5">+</button>
+                    </div>
+                </div>
+
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>≥1分</th>
+                            <th>≥2分</th>
+                            <th>≥3分</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="count1">0</td>
+                            <td id="count2">0</td>
+                            <td id="count3">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="suggestion-box">
+                    <h3>Content建议分数</h3>
+                    <p id="contentSuggestion">请先评分</p>
+                    <div class="score-display" id="contentScore">Content分数: 0</div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="checkbox-section">
+                    <div class="checkbox-column">
+                        <h3>连接词</h3>
+                        <div class="checkbox-item"><input type="checkbox" id="connector1" value="因为……所以……"> <label for="connector1">因为……所以……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector2" value="由于……因此……"> <label for="connector2">由于……因此……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector3" value="先……然后……"> <label for="connector3">先……然后……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector4" value="一边……一边"> <label for="connector4">一边……一边</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector5" value="虽然……但是……"> <label for="connector5">虽然……但是……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector6" value="比如……等等"> <label for="connector6">比如……等等</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector7" value="除了……还……"> <label for="connector7">除了……还……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector8" value="既……又……"> <label for="connector8">既……又……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector9" value="又……又……"> <label for="connector9">又……又……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector10" value="不但……而且……"> <label for="connector10">不但……而且……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector11" value="如果……就……"> <label for="connector11">如果……就……</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector12" value="比……更"> <label for="connector12">比……更</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="connector13" value="其它"> <label for="connector13">其它</label></div>
+                        <p>已选连接词: <span id="connectorCount">0</span></p>
+                    </div>
+                    <div class="checkbox-column">
+                        <h3>四字词</h3>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase1" value="形形色色"> <label for="phrase1">形形色色</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase2" value="五花八门"> <label for="phrase2">五花八门</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase3" value="各种各样"> <label for="phrase3">各种各样</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase4" value="五颜六色"> <label for="phrase4">五颜六色</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase5" value="美味可口"> <label for="phrase5">美味可口</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase6" value="独一无二"> <label for="phrase6">独一无二</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase7" value="平易近人"> <label for="phrase7">平易近人</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase8" value="美丽动人"> <label for="phrase8">美丽动人</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase9" value="乐于助人"> <label for="phrase9">乐于助人</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase10" value="人见人爱"> <label for="phrase10">人见人爱</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase11" value="风光如画"> <label for="phrase11">风光如画</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase12" value="大开眼界"> <label for="phrase12">大开眼界</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase13" value="名胜古迹"> <label for="phrase13">名胜古迹</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase14" value="放松身心"> <label for="phrase14">放松身心</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase15" value="人山人海"> <label for="phrase15">人山人海</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase16" value="举世闻名"> <label for="phrase16">举世闻名</label></div>
+                        <div class="checkbox-item"><input type="checkbox" id="phrase17" value="其它"> <label for="phrase17">其它</label></div>
+                        <p>已选四字词: <span id="phraseCount">0</span></p>
+                    </div>
+                </div>
+
+                <div class="suggestion-box">
+                    <h3>Language建议分数</h3>
+                    <p id="languageSuggestion">请先选择连接词和四字词</p>
+                    <div class="score-display" id="languageScore">Language分数: 0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 分数管理
+        const scores = [0, 0, 0, 0, 0];
+        
+        // 更新分数显示
+        function updateScoreDisplay() {
+            for (let i = 0; i < 5; i++) {
+                document.getElementById(`score${i+1}`).textContent = scores[i];
+            }
+            
+            // 更新统计
+            updateStatistics();
+        }
+        
+        // 更新统计
+        function updateStatistics() {
+            const count1 = scores.filter(score => score >= 1).length;
+            const count2 = scores.filter(score => score >= 2).length;
+            const count3 = scores.filter(score => score >= 3).length;
+            const count0 = scores.filter(score => score === 0).length;
+            
+            document.getElementById('count1').textContent = count1;
+            document.getElementById('count2').textContent = count2;
+            document.getElementById('count3').textContent = count3;
+            
+            // 更新Content建议
+            updateContentSuggestion(count1, count2, count3, count0);
+        }
+        
+        // 更新Content建议
+        function updateContentSuggestion(count1, count2, count3, count0) {
+            let suggestion = "";
+            let score = 0;
+            
+            if (count3 === 5) {
+                suggestion = "建议14-15分";
+                score = 14.5;
+            } else if (count2 === 5 && count3 === 4) {
+                suggestion = "建议12-13分";
+                score = 12.5;
+            } else if (count2 === 5 || count3 === 4) {
+                suggestion = "建议11-12分";
+                score = 11.5;
+            } else if (count2 === 4) {
+                suggestion = "建议10分";
+                score = 10;
+            } else if (count2 === 3 || count0 <= 1) {
+                suggestion = "建议9分";
+                score = 9;
+            } else if (count2 === 2 || count0 <= 2) {
+                suggestion = "建议8分";
+                score = 8;
+            } else if (count0 <= 2) {
+                suggestion = "建议7分";
+                score = 7;
+            } else if (count0 === 3) {
+                suggestion = "建议6分";
+                score = 6;
+            } else {
+                suggestion = "建议最高5分";
+                score = 5;
+            }
+            
+            document.getElementById('contentSuggestion').textContent = suggestion;
+            document.getElementById('contentScore').textContent = `Content分数: ${score}`;
+        }
+        
+        // 更新Language建议
+        function updateLanguageSuggestion(connectorCount, phraseCount) {
+            let suggestion = "";
+            let score = 0;
+            
+            if (connectorCount >= 3 && phraseCount >= 2) {
+                suggestion = "建议13-15分";
+                score = 14;
+            } else if (connectorCount >= 2 && phraseCount >= 2) {
+                suggestion = "建议11-12分";
+                score = 11.5;
+            } else if (connectorCount >= 2 && phraseCount >= 1) {
+                suggestion = "建议10-11分";
+                score = 10.5;
+            } else if (connectorCount >= 1 && phraseCount >= 1) {
+                suggestion = "建议9分";
+                score = 9;
+            } else if (connectorCount >= 1 || phraseCount >= 1) {
+                suggestion = "建议8分";
+                score = 8;
+            } else {
+                suggestion = "建议最高7分";
+                score = 7;
+            }
+            
+            document.getElementById('languageSuggestion').textContent = suggestion;
+            document.getElementById('languageScore').textContent = `Language分数: ${score}`;
+        }
+        
+        // 按钮事件监听
+        document.querySelectorAll('.increase-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const cardIndex = parseInt(this.getAttribute('data-card')) - 1;
+                if (scores[cardIndex] < 5) {
+                    scores[cardIndex]++;
+                    updateScoreDisplay();
+                }
+            });
+        });
+        
+        document.querySelectorAll('.decrease-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const cardIndex = parseInt(this.getAttribute('data-card')) - 1;
+                if (scores[cardIndex] > 0) {
+                    scores[cardIndex]--;
+                    updateScoreDisplay();
+                }
+            });
+        });
+        
+        // 连接词和四字词复选框事件
+        const connectors = document.querySelectorAll('input[type="checkbox"][id^="connector"]');
+        const phrases = document.querySelectorAll('input[type="checkbox"][id^="phrase"]');
+        
+        function updateCheckboxCounts() {
+            const connectorCount = Array.from(connectors).filter(cb => cb.checked).length;
+            const phraseCount = Array.from(phrases).filter(cb => cb.checked).length;
+            
+            document.getElementById('connectorCount').textContent = connectorCount;
+            document.getElementById('phraseCount').textContent = phraseCount;
+            
+            updateLanguageSuggestion(connectorCount, phraseCount);
+        }
+        
+        connectors.forEach(cb => cb.addEventListener('change', updateCheckboxCounts));
+        phrases.forEach(cb => cb.addEventListener('change', updateCheckboxCounts));
+        
+        // 录音功能
+        const recordButton = document.getElementById('recordButton');
+        const saveButton = document.getElementById('saveButton');
+        const resetButton = document.getElementById('resetButton');
+        const recordingStatus = document.getElementById('recordingStatus');
+        const studentNameInput = document.getElementById('studentName');
+        const timerDisplay = document.getElementById('timer');
+        
+        let isRecording = false;
+        let mediaRecorder;
+        let timerInterval;
+        let seconds = 0;
+        
+        // 计时器函数
+        function updateTimer() {
+            seconds++;
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        recordButton.addEventListener('click', async function() {
+            if (!isRecording) {
+                try {
+                    // 开始录音
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new RecordRTC(stream, {
+                        type: 'audio',
+                        mimeType: 'audio/mp3',
+                        recorderType: RecordRTC.StereoAudioRecorder,
+                        numberOfAudioChannels: 1,
+                        desiredSampRate: 16000
+                    });
+                    
+                    seconds = 0;
+                    timerDisplay.textContent = "00:00";
+                    timerInterval = setInterval(updateTimer, 1000);
+                    
+                    mediaRecorder.startRecording();
+                    isRecording = true;
+                    recordButton.textContent = '停止录音';
+                    recordButton.classList.add('recording');
+                    recordingStatus.classList.add('recording');
+                    saveButton.disabled = true;
+                } catch (error) {
+                    console.error('录音错误:', error);
+                    alert('无法访问麦克风，请检查权限设置');
+                }
+            } else {
+                // 停止录音
+                clearInterval(timerInterval);
+                mediaRecorder.stopRecording(() => {
+                    isRecording = false;
+                    recordButton.textContent = '开始录音';
+                    recordButton.classList.remove('recording');
+                    recordingStatus.classList.remove('recording');
+                    saveButton.disabled = false;
+                });
+            }
+        });
+        
+        saveButton.addEventListener('click', function() {
+            if (!mediaRecorder || isRecording) {
+                alert('没有录音数据可保存');
+                return;
+            }
+            
+            const studentName = studentNameInput.value.trim() || '未命名';
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+            const fileName = `${studentName}_${dateStr}.mp3`;
+            
+            // 获取录音Blob
+            const blob = mediaRecorder.getBlob();
+            
+            // 创建下载链接
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            saveButton.disabled = true;
+            alert(`录音已保存为: ${fileName}`);
+        });
+        
+        resetButton.addEventListener('click', function() {
+            // 确认重置
+            if (!confirm('确定要重置所有内容吗？')) return;
+            
+            // 重置分数
+            for (let i = 0; i < 5; i++) {
+                scores[i] = 0;
+            }
+            updateScoreDisplay();
+            
+            // 重置复选框
+            connectors.forEach(cb => cb.checked = false);
+            phrases.forEach(cb => cb.checked = false);
+            updateCheckboxCounts();
+            
+            // 重置录音
+            if (isRecording && mediaRecorder) {
+                clearInterval(timerInterval);
+                mediaRecorder.stopRecording();
+                isRecording = false;
+                recordButton.textContent = '开始录音';
+                recordButton.classList.remove('recording');
+                recordingStatus.classList.remove('recording');
+            }
+            saveButton.disabled = true;
+            seconds = 0;
+            timerDisplay.textContent = "00:00";
+            
+            // 重置学生姓名
+            studentNameInput.value = '';
+        });
+    </script>
+</body>
+</html>
